@@ -225,7 +225,7 @@ if st.session_state.stock_rows:
 if st.session_state.line_preview:
     st.subheader("本次 LINE 內容")
     st.caption(f"更新時間：{st.session_state.last_updated}")
-    st.caption("預覽內的長網址已改成可點擊按鈕，不會再顯示 Google News RSS 轉址串。")
+    st.caption("預覽中的完整網址會顯示為可點擊的超連結；LINE 實際訊息仍保留原始完整網址。")
     with st.container(border=True, height=520):
         text_lines = []
 
@@ -241,8 +241,9 @@ if st.session_state.line_preview:
                 text_lines.append(raw_line)
                 continue
             flush_preview_text()
-            label = "開啟新聞" if "news" in stripped.lower() else "開啟參考連結"
-            st.link_button(label, stripped, icon=":material/open_in_new:")
+            # 方案二：完整網址本身就是超連結，不再只顯示「開啟新聞」按鈕。
+            # Streamlit link_button 會處理 URL 跳轉，避免將網址插入不安全的 HTML。
+            st.link_button(stripped, stripped, icon=":material/open_in_new:")
         flush_preview_text()
 
 st.info("訊號只做紀律化觀察，不保證報酬；法人資料尚未結算時不會自行推測。")
