@@ -1424,7 +1424,7 @@ def build_line_message(
                 news = news_items[0]
                 title = news["title"] if len(news["title"]) <= 68 else news["title"][:67] + "…"
                 lines.append(f"  近期新聞（{news['date']}／{news['source']}）：{title}")
-                lines.append(f"  {news['url']}")
+                lines.append("　請按 LINE 訊息下方的「閱讀新聞」按鈕")
             else:
                 lines.append("  近期新聞：近7日無可驗證結果")
         lines.append("註：籌碼集中度＝近5日三大法人淨買賣超÷近5日成交量；內資＝投信＋自營商。")
@@ -1475,7 +1475,58 @@ def load_line_config():
     }
 
 
-def send_line_report(message):
+def _build_stock_news_flex(stock_rows):
+    """建立 LINE 原生可點擊新聞按鈕，避免 Google News RSS 長轉址顯示成亂碼。"""
+    bubbles = []
+    for row in stock_rows or []:
+        news_items = row.get("recent_news") or []
+        if not news_items:
+            continue
+        news = news_items[0]
+        url = str(news.get("url") or "").strip()
+        if not url.startswith(("https://", "http://")) or len(url) > 1000:
+            continue
+        title = " ".join(str(news.get("title") or "近期新聞").split())
+        bubbles.append({
+            "type": "bubble",
+            "size": "kilo",
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "spacing": "sm",
+                "contents": [
+                    {"type": "text", "text": row.get("name", "個股"), "weight": "bold", "size": "lg"},
+                    {"type": "text", "text": title, "wrap": True, "size": "sm", "color": "#444444"},
+                    {
+                        "type": "text",
+                        "text": f"{news.get('date', '—')} · {news.get('source', 'Google 新聞')}",
+                        "size": "xs",
+                        "color": "#888888",
+                        "margin": "md",
+                    },
+                ],
+            },
+            "footer": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [{
+                    "type": "button",
+                    "style": "primary",
+                    "color": "#168C62",
+                    "action": {"type": "uri", "label": "閱讀新聞", "uri": url},
+                }],
+            },
+        })
+    if not bubbles:
+        return None
+    return {
+        "type": "flex",
+        "altText": "五檔個股近期新聞（點擊閱讀）",
+        "contents": {"type": "carousel", "contents": bubbles[:10]},
+    }
+
+
+def send_line_report(message, stock_rows=None):
     """透過 LINE Messaging API 推送；未設定時安全略過。"""
     config = load_line_config()
     if not config["enabled"]:
@@ -1494,7 +1545,11 @@ def send_line_report(message):
             if is_broadcast else
             "https://api.line.me/v2/bot/message/push"
         )
-        payload = {"messages": [{"type": "text", "text": message}]}
+        messages = [{"type": "text", "text": message}]
+        news_flex = _build_stock_news_flex(stock_rows)
+        if news_flex:
+            messages.append(news_flex)
+        payload = {"messages": messages}
         if not is_broadcast:
             payload["to"] = config["target_id"]
         response = requests.post(
@@ -1846,7 +1901,7 @@ def main():
     with open(line_text_path, "w", encoding="utf-8") as line_file:
         line_file.write(line_message)
     log(f"LINE 文字版已產出：{line_text_path}")
-    send_line_report(line_message)
+    send_line_report(line_message, stock_rows)
     log("=" * 60)
 
     return output_path

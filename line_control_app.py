@@ -104,7 +104,7 @@ if send_clicked:
     st.session_state.stock_rows = stock_rows
     st.session_state.taiwan_vix = taiwan_vix
     st.session_state.last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    if report.send_line_report(message):
+    if report.send_line_report(message, stock_rows):
         st.success("已成功發送到 LINE。")
     else:
         st.error("LINE 發送失敗，請檢查 Channel token、傳送模式與接收者設定。")
