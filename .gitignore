@@ -1,0 +1,6 @@
+line_config.json
+.streamlit/secrets.toml
+__pycache__/
+*.log
+MoneyDJ_盤後新聞_*.docx
+LINE_市場綜合分析_*.txt
