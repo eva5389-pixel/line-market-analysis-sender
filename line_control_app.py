@@ -76,7 +76,7 @@ def generate_report_payload(cache_key: str):
 load_streamlit_secrets()
 require_cloud_password()
 st.title("LINE 市場分析發送台")
-st.caption("追蹤：緯穎、南電、金像電、欣興、所羅門。按一次即可更新資料並發送到官方 LINE。")
+st.caption("追蹤：緯穎、南電、金像電、欣興、所羅門、晶豪科。按一次即可更新資料並發送到官方 LINE。")
 
 config = report.load_line_config()
 if config["enabled"] and config["channel_access_token"]:
@@ -193,7 +193,7 @@ if st.session_state.stock_rows:
         for stock in st.session_state.stock_rows
         for item in (stock.get("recent_news") or [])
     ]
-    st.subheader("五檔個股近期新聞")
+    st.subheader("六檔個股近期新聞")
     if news_rows:
         news_table = pd.DataFrame(news_rows)[["stock", "date", "source", "title", "url"]]
         news_table.columns = ["股票", "日期", "來源", "新聞標題", "新聞連結"]

@@ -59,6 +59,7 @@ STOCK_WATCHLIST = [
     ("金像電", "2368.TW"),
     ("欣興", "3037.TW"),
     ("所羅門", "2359.TW"),
+    ("晶豪科", "3006.TW"),
 ]
 
 # 與 industry-supply-chain-dashboard 相同的研究分類摘要。僅表示同板塊，
@@ -84,6 +85,10 @@ SUPPLY_CHAIN_HOLDINGS = {
         "sectors": ["機器人"],
         "related": ["上銀", "台灣精銳", "和大", "達明機器人", "盟立", "鴻海"],
     },
+    "3006": {
+        "sectors": ["記憶體", "利基型記憶體IC"],
+        "related": ["南亞科", "華邦電", "旺宏", "群聯", "威剛", "力成"],
+    },
 }
 
 RELATED_TICKERS = {
@@ -94,6 +99,8 @@ RELATED_TICKERS = {
     "南電": "8046.TW", "上銀": "2049.TW", "台灣精銳": "4583.TW",
     "和大": "1536.TW", "達明機器人": "4585.TW", "盟立": "2464.TW",
     "鴻海": "2317.TW", "緯創": "3231.TW", "廣達": "2382.TW",
+    "南亞科": "2408.TW", "華邦電": "2344.TW", "旺宏": "2337.TW",
+    "群聯": "8299.TWO", "威剛": "3260.TWO", "力成": "6239.TW",
 }
 
 FOREIGN_BROKER_HISTORY_URL = (
@@ -1521,7 +1528,7 @@ def _build_stock_news_flex(stock_rows):
         return None
     return {
         "type": "flex",
-        "altText": "五檔個股近期新聞（點擊閱讀）",
+        "altText": "六檔個股近期新聞（點擊閱讀）",
         "contents": {"type": "carousel", "contents": bubbles[:10]},
     }
 
