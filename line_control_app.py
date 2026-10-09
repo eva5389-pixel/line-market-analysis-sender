@@ -204,7 +204,20 @@ if st.session_state.stock_rows:
                 "新聞連結": st.column_config.LinkColumn("開啟新聞", display_text="閱讀"),
             },
         )
-        st.caption("新聞來自 Google 新聞近7日搜尋結果；點擊連結可回到原刊登來源查核全文。")
+        st.markdown("**手機可點擊新聞**")
+        for stock in st.session_state.stock_rows:
+            stock_news = stock.get("recent_news") or []
+            if not stock_news:
+                continue
+            with st.container(horizontal=True, horizontal_alignment="left"):
+                for item in stock_news:
+                    short_title = item["title"] if len(item["title"]) <= 24 else item["title"][:23] + "…"
+                    st.link_button(
+                        f"{stock['name']}｜{short_title}",
+                        item["url"],
+                        icon=":material/open_in_new:",
+                    )
+        st.caption("新聞來自 Google 新聞近7日搜尋結果；請用上方『閱讀』或按鈕開啟，LINE訊息預覽框中的純文字網址本身無法點擊。")
     else:
         st.info("近7日暫無可驗證的個股新聞結果。")
 
