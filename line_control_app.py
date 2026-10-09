@@ -10,6 +10,7 @@ import streamlit as st
 
 import app as report
 from subscriptions import recipients, send_one, send_subscribers
+from report_preview import report_preview_html
 
 
 st.set_page_config(page_title="LINE 市場分析發送台", page_icon="📨", layout="wide")
@@ -115,7 +116,7 @@ if st.session_state.line_preview:
     import hashlib
     digest = hashlib.sha256(st.session_state.line_preview.encode()).hexdigest()
     with st.expander("發送前預覽", expanded=True):
-        st.text(st.session_state.line_preview)
+        st.html(report_preview_html(st.session_state.line_preview))
     if st.button("發送給自己"):
         try:
             send_one(config["channel_access_token"], config["target_id"], st.session_state.line_preview)
