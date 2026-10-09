@@ -19,3 +19,12 @@ def webhook():
     payload = request.get_json()
     for event in payload.get('events', []): apply_event(event)
     return '', 200
+
+@app.get('/healthz')
+def health():
+    from subscriptions import connect
+    if not os.environ.get('LINE_CHANNEL_SECRET'):
+        abort(503)
+    with connect() as db:
+        db.execute('SELECT 1')
+    return {'status': 'ok'}, 200

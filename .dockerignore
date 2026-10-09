@@ -1,0 +1,9 @@
+.git
+__pycache__
+*.db
+*.db-*
+*.sqlite*
+.env
+.streamlit/secrets.toml
+line_config.json
+*.log

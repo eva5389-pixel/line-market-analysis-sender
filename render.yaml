@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: line-market-analysis-sender
+    runtime: docker
+    plan: starter
+    region: singapore
+    healthCheckPath: /healthz
+    autoDeployTrigger: "off"
+    disk:
+      name: subscriptions
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: SUBSCRIPTIONS_DB
+        value: /var/data/subscriptions.db
+      - key: APP_PASSWORD
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_TARGET_ID
+        sync: false
+      - key: LINE_CHANNEL_SECRET
+        sync: false

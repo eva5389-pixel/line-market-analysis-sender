@@ -28,3 +28,9 @@
 `python -m unittest -v test_subscriptions.py`
 
 測試使用臨時資料庫與模擬 API，不傳送真實 LINE 訊息。GitHub 程式更新不代表 Webhook、持久化主機或帳號選單已接通。
+
+## Render 單一服務部署
+
+儲存庫已附 `render.yaml`、Dockerfile 及啟動器。使用 Starter 與 1 GB 磁碟，發送台及 Webhook 在同一服務內共用 `/var/data/subscriptions.db`。外部 `/webhook` 由 Flask 處理，其餘頁面由 Streamlit 處理；不另開第二個付費服務。建立前請核對 Render 顯示的價格。
+
+在 Render 私密環境設定填入上述四項憑證／管理密碼，勿放入 YAML 或 GitHub。部署成功後先驗證 `/healthz`，再於 LINE 設定 `https://實際服務網址/webhook`。請先用測試好友完成每日訂閱、改每週及暫停的往返驗證，確認名單可於重新啟動後保留，再正式使用。
