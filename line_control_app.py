@@ -85,9 +85,9 @@ st.caption("追蹤：緯穎、南電、金像電、欣興、所羅門、晶豪�
 config = report.load_line_config()
 if config["enabled"] and config["channel_access_token"]:
     destination = "手動發送，依每日／每週訂閱名單"
-    st.success(f"LINE 已連線；傳送方式：{destination}。憑證不會顯示在頁面或報告中。")
+    st.success(f"LINE 憑證已設定；傳送方式：{destination}。憑證不會顯示在頁面或報告中。")
 else:
-    st.warning("LINE 尚未完成設定。請先雙擊「LINE官方串接設定.command」輸入 Channel access token。")
+    st.warning("LINE 憑證尚未設定，請在主機設定 LINE_CHANNEL_ACCESS_TOKEN；發送給自己另需 LINE_TARGET_ID。")
 
 st.session_state.setdefault("line_preview", "")
 st.session_state.setdefault("stock_rows", [])
@@ -157,7 +157,7 @@ if st.session_state.taiwan_vix:
     st.caption("資料來源：臺灣期貨交易所；VIX衡量未來30天預期波動，不代表股市必然下跌或精確跌幅。")
 
 if st.session_state.stock_rows:
-    st.subheader("五檔個股最新判讀")
+    st.subheader(f"{len(st.session_state.stock_rows)} 檔個股最新判讀")
     table = pd.DataFrame(st.session_state.stock_rows)
     table = table[[
         "name", "date", "close", "turnover_pct", "price_volume", "volume_ratio",

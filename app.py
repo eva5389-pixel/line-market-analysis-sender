@@ -1482,7 +1482,7 @@ def load_line_config():
         except Exception as exc:
             log(f"LINE 設定檔無法讀取：{exc}")
     return {
-        "enabled": bool(config.get("enabled", False)),
+        "enabled": bool(os.getenv("LINE_CHANNEL_ACCESS_TOKEN")) or bool(config.get("enabled", False)),
         "delivery_mode": config.get("delivery_mode", "push"),
         "channel_access_token": os.getenv("LINE_CHANNEL_ACCESS_TOKEN") or config.get("channel_access_token", ""),
         "target_id": os.getenv("LINE_TARGET_ID") or config.get("target_id", ""),
