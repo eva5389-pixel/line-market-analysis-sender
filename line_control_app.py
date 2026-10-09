@@ -159,6 +159,35 @@ if st.session_state.stock_rows:
     st.caption("籌碼集中度＝近5日三大法人淨買賣超 ÷ 近5日成交量；內資＝投信＋自營商。")
     st.caption("六大外資成本採逐日移動平均剩餘庫存估算；進場評估依價格相對MA20與KD方向。供應鏈為研究分類，不代表直接供貨關係。")
 
+    related_move_rows = [
+        {
+            "追蹤股票": stock["name"],
+            "供應鏈板塊": stock["supply_chain"],
+            "相關公司": item["name"],
+            "行情日期": item["date"],
+            "收盤價": item["close"],
+            "前一日漲跌%": item["daily_pct"],
+        }
+        for stock in st.session_state.stock_rows
+        for item in (stock.get("related_moves") or [])
+    ]
+    st.subheader("相關供應鏈前一交易日漲跌")
+    if related_move_rows:
+        related_table = pd.DataFrame(related_move_rows).sort_values(
+            ["追蹤股票", "前一日漲跌%"], ascending=[True, False]
+        )
+        st.dataframe(
+            related_table,
+            hide_index=True,
+            column_config={
+                "收盤價": st.column_config.NumberColumn(format="%.2f"),
+                "前一日漲跌%": st.column_config.NumberColumn(format="%+.2f%%"),
+            },
+        )
+        st.caption("以各公司最近完整交易日收盤價與前一交易日收盤價計算；不同市場休市日可能不同。")
+    else:
+        st.info("相關供應鏈行情暫時無法取得。")
+
     news_rows = [
         item
         for stock in st.session_state.stock_rows

@@ -64,7 +64,10 @@ STOCK_WATCHLIST = [
 # 與 industry-supply-chain-dashboard 相同的研究分類摘要。僅表示同板塊，
 # 不代表公司間存在直接供貨、投資或客戶關係。
 SUPPLY_CHAIN_HOLDINGS = {
-    "6669": {"sectors": [], "related": []},
+    "6669": {
+        "sectors": ["AI伺服器"],
+        "related": ["緯創", "廣達", "鴻海"],
+    },
     "8046": {
         "sectors": ["博通供應鏈", "ABF載板"],
         "related": ["台積電", "日月光投控", "智邦", "啟碁", "欣興", "景碩"],
@@ -81,6 +84,16 @@ SUPPLY_CHAIN_HOLDINGS = {
         "sectors": ["機器人"],
         "related": ["上銀", "台灣精銳", "和大", "達明機器人", "盟立", "鴻海"],
     },
+}
+
+RELATED_TICKERS = {
+    "台積電": "2330.TW", "日月光投控": "3711.TW", "智邦": "2345.TW",
+    "啟碁": "6285.TW", "欣興": "3037.TW", "景碩": "3189.TW",
+    "金居": "8358.TWO", "健鼎": "3044.TW", "臻鼎-KY": "4958.TW",
+    "台光電": "2383.TW", "聯茂": "6213.TW", "金像電": "2368.TW",
+    "南電": "8046.TW", "上銀": "2049.TW", "台灣精銳": "4583.TW",
+    "和大": "1536.TW", "達明機器人": "4585.TW", "盟立": "2464.TW",
+    "鴻海": "2317.TW", "緯創": "3231.TW", "廣達": "2382.TW",
 }
 
 FOREIGN_BROKER_HISTORY_URL = (
@@ -876,6 +889,49 @@ def fetch_taiwan_vix():
     }
 
 
+def fetch_related_supply_chain_moves():
+    """由證交所與櫃買中心官方 API 批次取得最近完整交易日漲跌。"""
+    def numeric(value):
+        cleaned = re.sub(r"[^0-9.\-]", "", str(value or ""))
+        return float(cleaned) if re.search(r"\d", cleaned) else None
+
+    def roc_compact_date(value):
+        text = str(value or "")
+        if len(text) == 7 and text.isdigit():
+            return f"{int(text[:3]) + 1911:04d}-{text[3:5]}-{text[5:7]}"
+        return "—"
+
+    by_code = {}
+    official_sources = (
+        ("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL",
+         "Code", "Date", "ClosingPrice", "Change"),
+        ("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
+         "SecuritiesCompanyCode", "Date", "Close", "Change"),
+    )
+    for url, code_field, date_field, close_field, change_field in official_sources:
+        try:
+            response = requests.get(url, headers=HEADERS, timeout=30)
+            response.raise_for_status()
+            for item in response.json():
+                code = str(item.get(code_field, "")).strip()
+                close = numeric(item.get(close_field))
+                change = numeric(item.get(change_field))
+                previous_close = close - change if close is not None and change is not None else None
+                if code and close is not None and previous_close and previous_close > 0:
+                    by_code[code] = {
+                        "date": roc_compact_date(item.get(date_field)),
+                        "close": close,
+                        "daily_pct": change / previous_close * 100,
+                    }
+        except Exception as exc:
+            log(f"官方供應鏈行情取得失敗（{url}）：{exc}")
+
+    return {
+        name: {"name": name, "symbol": symbol, **by_code[symbol.split('.')[0]]}
+        for name, symbol in RELATED_TICKERS.items() if symbol.split(".")[0] in by_code
+    }
+
+
 def fetch_stock_watchlist():
     """以證交所正式資料計算量價、換手率及法人籌碼觀察。"""
 
@@ -948,6 +1004,7 @@ def fetch_stock_watchlist():
         return result
 
     names = {symbol.split(".")[0]: name for name, symbol in STOCK_WATCHLIST}
+    related_market_moves = fetch_related_supply_chain_moves()
     histories = {}
     for code in names:
         try:
@@ -1158,6 +1215,7 @@ def fetch_stock_watchlist():
                 "foreign_cost_source": "資料不足", "entry_score": None,
                 "entry_assessment": "資料不足", "kd_k": None, "kd_d": None,
                 "supply_chain": "未分類", "related_holdings": "—",
+                "related_moves": [],
                 "recent_news": recent_news(name, code),
             })
             continue
@@ -1197,6 +1255,10 @@ def fetch_stock_watchlist():
         chain = SUPPLY_CHAIN_HOLDINGS.get(code, {"sectors": [], "related": []})
         supply_chain = "、".join(chain["sectors"]) if chain["sectors"] else "現有供應鏈清單未分類"
         related_holdings = "、".join(chain["related"]) if chain["related"] else "—"
+        related_moves = [
+            related_market_moves[related_name]
+            for related_name in chain["related"] if related_name in related_market_moves
+        ]
 
         price_direction = "價漲" if daily_pct > 0 else "價跌" if daily_pct < 0 else "價平"
         volume_direction = (
@@ -1243,6 +1305,7 @@ def fetch_stock_watchlist():
             "kd_d": d_value,
             "supply_chain": supply_chain,
             "related_holdings": related_holdings,
+            "related_moves": related_moves,
             "recent_news": recent_news(name, code),
         })
     return rows
@@ -1345,6 +1408,17 @@ def build_line_message(
             lines.append(
                 f"  供應鏈：{row['supply_chain']}；相關持股：{row['related_holdings']}"
             )
+            related_moves = sorted(
+                row.get("related_moves") or [], key=lambda item: item["daily_pct"], reverse=True
+            )
+            if related_moves:
+                shown_moves = related_moves if len(related_moves) <= 3 else [related_moves[0], related_moves[-1]]
+                move_text = "、".join(
+                    f"{item['name']}{item['daily_pct']:+.2f}%" for item in shown_moves
+                )
+                lines.append(f"  相關供應鏈前一日：{move_text}（{related_moves[0]['date']}）")
+            else:
+                lines.append("  相關供應鏈前一日：行情資料不足")
             news_items = row.get("recent_news") or []
             if news_items:
                 news = news_items[0]
@@ -1366,7 +1440,7 @@ def build_line_message(
             0 if article.get("region") == "美國" else 1,
             -article["pub_date"].timestamp(),
         ),
-    )[:4 if stock_rows else 6]
+    )[:3 if stock_rows else 6]
     for article in latest_articles:
         lines.append(f"♦️{article['title']}")
         if article.get("url"):
