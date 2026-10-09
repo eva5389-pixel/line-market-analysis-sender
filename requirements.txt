@@ -4,3 +4,6 @@ pandas
 python-docx
 requests
 streamlit
+
+flask
+gunicorn

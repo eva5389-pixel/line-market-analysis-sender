@@ -19,6 +19,7 @@ from io import StringIO
 
 import requests
 import urllib3
+from news_links import article_link, line_messages
 from bs4 import BeautifulSoup
 from docx import Document
 from docx.shared import Pt, Cm, RGBColor
@@ -1429,9 +1430,11 @@ def build_line_message(
             news_items = row.get("recent_news") or []
             if news_items:
                 news = news_items[0]
-                title = news["title"] if len(news["title"]) <= 68 else news["title"][:67] + "…"
+                title = news["title"]
                 lines.append(f"  近期新聞（{news['date']}／{news['source']}）：{title}")
-                lines.append("　請按 LINE 訊息下方的「閱讀新聞」按鈕")
+                link_label, article_url = article_link(news)
+                lines.append("點開看完整新聞" if link_label == "新聞原文" else "原文暫缺，點開搜尋新聞")
+                lines.append(article_url)
             else:
                 lines.append("  近期新聞：近7日無可驗證結果")
         lines.append("註：籌碼集中度＝近5日三大法人淨買賣超÷近5日成交量；內資＝投信＋自營商。")
@@ -1451,18 +1454,22 @@ def build_line_message(
     for article in latest_articles:
         lines.append(f"♦️{article['title']}")
         if article.get("url"):
-            lines.append(article["url"])
+            link_label, article_url = article_link(article)
+            lines.append("點開看完整新聞" if link_label == "新聞原文" else "原文暫缺，點開搜尋新聞")
+            lines.append(article_url)
     if udn_hot_news:
         lines.extend(["", "🔥《經濟日報熱門財經新聞》"])
         for article in udn_hot_news:
             lines.append(f"🔹️{article['title']}")
-            lines.append(article["url"])
+            link_label, article_url = article_link(article)
+            lines.append("點開看完整新聞" if link_label == "新聞原文" else "原文暫缺，點開搜尋新聞")
+            lines.append(article_url)
     lines.extend(["", "🔎《行情查核》"])
     for label, url in MARKET_REFERENCE_LINKS:
         lines.append(f"・{label}：{url}")
     lines.append("註：不同市場休市日不同，各列日期以最近已完成交易日為準；不使用 ETF 價格冒充指數。")
     lines.extend(["", "🌈免責聲明：依公開網頁資訊彙整，僅供參考，不構成任何投資建議。"])
-    return "\n".join(lines)[:4900]
+    return "\n".join(lines)
 
 
 def load_line_config():
@@ -1908,7 +1915,7 @@ def main():
     with open(line_text_path, "w", encoding="utf-8") as line_file:
         line_file.write(line_message)
     log(f"LINE 文字版已產出：{line_text_path}")
-    send_line_report(line_message, stock_rows)
+    log("日報已產生；請在管理頁預覽後手動發送。")
     log("=" * 60)
 
     return output_path

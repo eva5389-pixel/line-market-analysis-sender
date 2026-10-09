@@ -9,6 +9,7 @@ import pandas as pd
 import streamlit as st
 
 import app as report
+from subscriptions import recipients, send_one, send_subscribers
 
 
 st.set_page_config(page_title="LINE 市場分析發送台", page_icon="📨", layout="wide")
@@ -26,15 +27,17 @@ def load_streamlit_secrets() -> None:
         os.environ["LINE_CONFIG_SOURCE"] = "streamlit_secrets"
     if target_id:
         os.environ["LINE_TARGET_ID"] = str(target_id)
+    if st.secrets.get("SUBSCRIPTIONS_DB"):
+        os.environ["SUBSCRIPTIONS_DB"] = str(st.secrets["SUBSCRIPTIONS_DB"])
 
 
 def require_cloud_password() -> None:
     """雲端 LINE 發送頁必須先通過密碼，避免公開網址遭他人濫用。"""
     try:
-        app_password = str(st.secrets.get("APP_PASSWORD", ""))
+        app_password = str(st.secrets.get("APP_PASSWORD", "")) or os.getenv("APP_PASSWORD", "")
     except Exception:
-        app_password = ""
-    using_cloud_secrets = os.getenv("LINE_CONFIG_SOURCE") == "streamlit_secrets"
+        app_password = os.getenv("APP_PASSWORD", "")
+    using_cloud_secrets = bool(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
     if using_cloud_secrets and not app_password:
         st.error("雲端版尚未設定 APP_PASSWORD；為避免他人誤發 LINE，發送功能已鎖定。")
         st.stop()
@@ -77,11 +80,11 @@ def generate_report_payload(cache_key: str):
 load_streamlit_secrets()
 require_cloud_password()
 st.title("LINE 市場分析發送台")
-st.caption("追蹤：緯穎、南電、金像電、欣興、所羅門、晶豪科。按一次即可更新資料並發送到官方 LINE。")
+st.caption("追蹤：緯穎、南電、金像電、欣興、所羅門、晶豪科。先預覽、發給自己確認，再手動發給訂閱好友。")
 
 config = report.load_line_config()
 if config["enabled"] and config["channel_access_token"]:
-    destination = "廣播給官方帳號好友" if config["delivery_mode"] == "broadcast" else "指定對象"
+    destination = "手動發送，依每日／每週訂閱名單"
     st.success(f"LINE 已連線；傳送方式：{destination}。憑證不會顯示在頁面或報告中。")
 else:
     st.warning("LINE 尚未完成設定。請先雙擊「LINE官方串接設定.command」輸入 Channel access token。")
@@ -92,9 +95,9 @@ st.session_state.setdefault("taiwan_vix", None)
 st.session_state.setdefault("last_updated", "")
 
 send_clicked = st.button(
-    "產生最新分析並發送 LINE",
+    "產生預覽（不發送）",
     type="primary",
-    disabled=not (config["enabled"] and config["channel_access_token"]),
+
 )
 
 if send_clicked:
@@ -105,10 +108,37 @@ if send_clicked:
     st.session_state.stock_rows = stock_rows
     st.session_state.taiwan_vix = taiwan_vix
     st.session_state.last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    if report.send_line_report(message, stock_rows):
-        st.success("已成功發送到 LINE。")
-    else:
-        st.error("LINE 發送失敗，請檢查 Channel token、傳送模式與接收者設定。")
+    st.session_state.self_checked = ""
+    st.success("預覽已更新，尚未發送。")
+
+if st.session_state.line_preview:
+    import hashlib
+    digest = hashlib.sha256(st.session_state.line_preview.encode()).hexdigest()
+    with st.expander("發送前預覽", expanded=True):
+        st.text(st.session_state.line_preview)
+    if st.button("發送給自己"):
+        try:
+            send_one(config["channel_access_token"], config["target_id"], st.session_state.line_preview)
+            st.session_state.self_checked = digest
+            st.success("已發給自己，確認後再發給好友。")
+        except Exception:
+            st.error("發送未確認，請核對自己的 User ID、憑證及 LINE 收件狀態。")
+    frequency = st.selectbox("接收名單", ["daily", "weekly"], format_func=lambda x: {"daily":"每日訂閱", "weekly":"每週訂閱"}[x])
+    st.caption("每週訂閱只是接收頻率；目前發送的是本次預覽，不會自動彙整一週內容。")
+    ready = False
+    try:
+        count = len(recipients(frequency))
+        st.caption(f"目前訂閱人數：{count}")
+        ready = count > 0
+    except (ValueError, OSError):
+        st.info("好友訂閱尚未啟用：請完成 Webhook 與持久化資料庫設定。")
+    confirmed = st.checkbox("我已檢查本次內容，確認發送", key="confirm_" + digest + frequency)
+    if st.button("發送給訂閱好友", disabled=not (ready and confirmed and st.session_state.get("self_checked") == digest)):
+        try:
+            sent, skipped = send_subscribers(config["channel_access_token"], frequency, st.session_state.line_preview)
+            st.success(f"已發送 {sent} 人；略過已處理或待查核紀錄 {skipped} 人。")
+        except Exception:
+            st.error("發送未全部確認，請查核紀錄；不要重複發送相同內容。")
 
 if st.session_state.taiwan_vix:
     vix = st.session_state.taiwan_vix
