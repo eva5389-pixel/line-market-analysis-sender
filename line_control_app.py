@@ -2,6 +2,7 @@
 """LINE 官方帳號市場分析手動發送頁面。"""
 
 import os
+import re
 from datetime import datetime
 
 import pandas as pd
@@ -224,11 +225,24 @@ if st.session_state.stock_rows:
 if st.session_state.line_preview:
     st.subheader("本次 LINE 內容")
     st.caption(f"更新時間：{st.session_state.last_updated}")
-    st.text_area(
-        "LINE 訊息預覽",
-        value=st.session_state.line_preview,
-        height=520,
-        disabled=True,
-    )
+    st.caption("預覽內的長網址已改成可點擊按鈕，不會再顯示 Google News RSS 轉址串。")
+    with st.container(border=True, height=520):
+        text_lines = []
+
+        def flush_preview_text():
+            if text_lines:
+                st.text("\n".join(text_lines))
+                text_lines.clear()
+
+        for raw_line in st.session_state.line_preview.splitlines():
+            stripped = raw_line.strip()
+            url_match = re.fullmatch(r"https?://\S+", stripped)
+            if not url_match:
+                text_lines.append(raw_line)
+                continue
+            flush_preview_text()
+            label = "開啟新聞" if "news" in stripped.lower() else "開啟參考連結"
+            st.link_button(label, stripped, icon=":material/open_in_new:")
+        flush_preview_text()
 
 st.info("訊號只做紀律化觀察，不保證報酬；法人資料尚未結算時不會自行推測。")
